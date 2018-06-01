@@ -43,7 +43,7 @@ def train(loadModel=True):
             #for k in range(len(teach_data[0])):
                 #hred.train_final_model(final_model, train_data, teach_data[:,:k+1], teach_target_data[:,k])
     text_data = sorted(text_data, key=len, reverse=False)
-    restart_point =   0#.429944
+    restart_point =   0.010408
     loss_history = []
     loss_detailed_history = []
     last_saved = time()
