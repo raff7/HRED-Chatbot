@@ -22,6 +22,8 @@ class con():
     save_every = 0.1 *60
     print1 = False
     print_iterations = True
+    
+    Load_Model = True
     ''' fata settings '''
     begin_of_sentence = "__BOS__"
     end_of_sentence = "__EOS__"

@@ -64,6 +64,7 @@ class chatbot:
         return self.w2v.vec_to_sentence(answer_sentence)
     
     def check(self):
+        #this method checks the difference of the output caused by two different inputs
         input_vector1 = []
         input_vector2 = []
         input_sentence1="I'm exhausted.".lower()+"  __EOS__"
