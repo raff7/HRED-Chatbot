@@ -1,4 +1,6 @@
 Keras implementation of HRED architecture.
-run.py either create a new network and begin training, or it load a pre-existing model, and continue training it (change this setting with the constat "Load_Model" in Constants.py
+To use the code.
 
-chatbot.py loads the model and starts a conversation.
+run.py : Start the training of HRED.it can either create a new network and begin training, or load a pre-existing model and restart from where it left(change this setting with the constat "Load_Model" in Constants.py
+
+chatbot.py: loads the model and starts a conversation.
