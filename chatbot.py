@@ -10,24 +10,30 @@ from scipy import spatial
 
 class chatbot:
     
-    def __init__(self,wo2ve = None,encoder = None, decoder = None):
+    def __init__(self,wo2ve = None,encoder = None, decoder = None,context = None):
        # load
-       self.hred = HRED()
-       if(wo2ve is None):
+        if(wo2ve is None):
            self.w2v = w2v()
-       else:
+        else:
            self.w2v = wo2ve
-       self.ds = ds(self.w2v)
-       if(encoder is None):
+        self.hred = HRED(self.w2v)
+        self.ds = ds(self.w2v)
+        if(encoder is None):
            self.encoder = self.hred.load_models(con.save_as_enc)
-       else:
+        else:
            self.encoder = encoder
-       if(decoder is None):    
+        if(decoder is None):    
            self.decoder = self.hred.load_models(con.save_as_dec)
-       else:
+        else:
            self.decoder = decoder
-       self.final_model = self.hred.build_final_model(self.encoder, self.decoder)
-       self.final_model = self.hred.model_compile(self.final_model)
+        if(context is None):    
+           self.context = self.hred.load_models(con.save_as_con)
+        else:
+           self.context = context
+        
+        self.init_hidden_states()
+        self.final_model = self.hred.build_final_model(self.encoder, self.decoder,self.context)
+        self.final_model = self.hred.model_compile(self.final_model)
        
 
     
@@ -39,15 +45,16 @@ class chatbot:
         
         state_h, state_c = self.encoder.predict(input_vector)
         
-        state_h = np.array(state_h)
-        state_c = np.array(state_c)
+        state_h = state_h.reshape(1, 1, con.encoder_output_size)
+
+        _, self.meta_hh, self.meta_hc = self.context.predict([state_h, self.meta_hh, self.meta_hc])
     
         answer_sentence = []
         word = np.array([self.w2v.get_vec(con.begin_of_sentence)])
         word = np.reshape(word,(1,1,))
         stop_condition = False
         while not stop_condition:
-            Nword_ = self.decoder.predict([word, state_h, state_c])
+            Nword_ = self.decoder.predict([word, self.meta_hh, self.meta_hc])
             Nword = self.w2v.get_word_prob(Nword_)
             word =  np.array([np.append(word[0],[Nword],axis=0)])
             #word=Nword
@@ -70,20 +77,23 @@ class chatbot:
         state_h1, state_c1 = self.encoder.predict(input_vector1)
         state_h2, state_c2 = self.encoder.predict(input_vector2)
 
-        state_h1 = np.array(state_h1)
-        state_c1 = np.array(state_c1)
-        state_h2 = np.array(state_h2)
-        state_c2 = np.array(state_c2)
+        state_h1 = state_h1.reshape(1, 1, con.encoder_output_size)
+        state_h2 = state_h2.reshape(1, 1, con.encoder_output_size)
+        self.init_hidden_states()
+        _, meta_hh1, meta_hc1 = self.context.predict([state_h1, self.meta_hh , self.meta_hc])
+        _, meta_hh2, meta_hc2 = self.context.predict([state_h2, self.meta_hh, self.meta_hc])
         
         word = np.array([self.w2v.get_vec(con.begin_of_sentence)])
         word = np.reshape(word,(1,1,))
  
-        Nword1 = self.decoder.predict([word, state_h1, state_c1])
-        Nword2 = self.decoder.predict([word, state_h2, state_c2])
+        Nword1 = self.decoder.predict([word, meta_hh1, meta_hc1])
+        Nword2 = self.decoder.predict([word, meta_hh1, meta_hc2])
        
-        return spatial.distance.euclidean(Nword1, Nword2),1-spatial.distance.cosine(state_h1, state_h2),1-spatial.distance.cosine(state_c1, state_c2)
-
-
+        return spatial.distance.euclidean(Nword1, Nword2),1-spatial.distance.cosine(meta_hh1, meta_hh2),1-spatial.distance.cosine(meta_hc1, meta_hc2)
+    
+    def init_hidden_states(self):
+        self.meta_hh = np.array([[0]*con.encoder_output_size])
+        self.meta_hc = np.array([[0]*con.encoder_output_size])
 
 if __name__ == '__main__':           
         print('Chatting...')

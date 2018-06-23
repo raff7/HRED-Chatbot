@@ -45,6 +45,8 @@ class word2vec:
         return emb_data
     
     def get_word(self,i):
+        if(i==0):
+            return con.unknown
         return self.voc[i]
     
     def get_vec(self,word):
@@ -53,8 +55,7 @@ class word2vec:
         if(word in self.voc):
             return [i for i, w in enumerate(self.voc) if w == word][0]
         else:   
-            print('{0} is an out of dictionary word'.format(word))
-            return 0
+            return 1
     
     def sentence_to_vec(self,sentence):
         vec = []
@@ -82,7 +83,7 @@ class word2vec:
         
         embedding_weights = np.zeros((len(self.voc), con.embedding_size))
         for index,word in enumerate(self.voc):
-            if(index > 0):
+            if(index > 1):
                 embedding_weights[index, :] = self.model[word]
         return embedding_weights
 class DataShaping:
@@ -176,16 +177,21 @@ class DataShaping:
                     return data[:,:j]
             
         
-    def filter_padding(self, k, train_data, teach_data, target_data):#TBD WHY IS THE ENCODER PADDED OUT, IT SHOULD ONLY BE THE DECODER...
+    def filter_padding(self, k, train_data, teach_data, target_data,meta_hh,meta_hc):#TBD WHY IS THE ENCODER PADDED OUT, IT SHOULD ONLY BE THE DECODER...
         step_train_data= []
         step_teach_data= []
         step_target_data = []
+        step_meta_hh = []
+        step_meta_hc = []
         for i in range(len(train_data)):
             if(not (target_data[i][k] == 0)):
                 step_train_data.append(train_data[i])
                 step_teach_data.append(teach_data[i,:k+1])
                 step_target_data.append(self.to_one_hot(target_data[i,k]))
-        return self.remove_extra_padding(np.array(step_train_data)),np.array(step_teach_data),np.array(step_target_data)
+                step_meta_hh.append(meta_hh[i])
+                step_meta_hc.append(meta_hc[i])
+        step_train_data = self.remove_extra_padding(np.array(step_train_data))
+        return step_train_data,np.array(step_teach_data),np.array(step_target_data),np.array(step_meta_hh),np.array(step_meta_hc)
     
     def to_one_hot(self,i):
         one_hot = [0]*len(self.w2v.voc)

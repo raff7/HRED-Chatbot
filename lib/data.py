@@ -80,7 +80,10 @@ def load_training_Data():
             if(len(sent)>1):
                 text_data.append(sent)
     #return the text data divided hierarchically
-    voc = set(st)
-    voc = list(voc)
-    voc = np.insert(voc,0,'__PAD__')
+    from collections import Counter
+    counter = Counter(st)
+    voc = counter.most_common(con.voc_size)
+    voc =[x for x,i in voc]
+    voc = np.insert(voc,0,con.pad)
+    voc = np.insert(voc,1,con.unknown)
     return  text_data, voc

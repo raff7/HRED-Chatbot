@@ -11,10 +11,10 @@ from keras.callbacks import LambdaCallback
 
 
 class HRED():
-    def __init__(self):
+    def __init__(self,w2v):
         self.input_size = con.embedding_size
         self.latent_dim = con.encoder_output_size
-        self.w2v=wordEmbeddings.word2vec()
+        self.w2v=w2v
     def build_encoder(self):
         K.set_learning_phase(1) # set learning phase
 
@@ -45,9 +45,17 @@ class HRED():
 
         return Model([decoder_inputs, encoder_h, encoder_c], decoder_outputs)
 
+    def build_context_model(self):
+        K.set_learning_phase(1)
+        inputs = Input(shape=(None, self.latent_dim))
+        state_h_input = Input(shape=(self.latent_dim,))
+        state_c_input = Input(shape=(self.latent_dim,))
+        state_value = [state_h_input, state_c_input]
+        outputs, state_h, state_c = LSTM(self.latent_dim, return_state=True)(inputs, initial_state=state_value)
+        return Model([inputs, state_h_input, state_c_input], [outputs, state_h, state_c])
+    
 
-
-    def build_final_model(self, encoder, decoder):
+    def build_final_model(self, encoder, decoder,context):
         # encoder
         encoder_inputs = Input(shape=(None,))
         layer = encoder.layers
@@ -55,7 +63,17 @@ class HRED():
         for i in range(con.depth):    
             LSTM_input = layer[i+2](LSTM_input)
         encoder_output, state_h, state_c = layer[len(layer)-1](LSTM_input)
-        encoder_states = [state_h, state_c]
+        
+
+        # context
+        layer3 = context.layers
+        meta_hh = Input(shape=(self.latent_dim,))
+        meta_hc = Input(shape=(self.latent_dim,))
+        meta_h_state = [meta_hh, meta_hc]
+        state_h = Reshape((1 , self.latent_dim))(state_h)
+        _, state_h_output, state_c_output = layer3[len(layer3)-1](state_h, initial_state=meta_h_state)
+        
+        encoder_states = [state_h_output, state_c_output]
 
         # decoder
         decoder_inputs = Input(shape=(None,))
@@ -67,7 +85,7 @@ class HRED():
         decoder_outputs =  layer2[con.depth+5](decoder_lstm_outputs)
         outputs =  layer2[con.depth+6](decoder_outputs)
 
-        return Model([encoder_inputs, decoder_inputs], outputs)
+        return Model([encoder_inputs, decoder_inputs, meta_hh, meta_hc], outputs)
 
 
     def model_compile(self, model):
@@ -78,14 +96,18 @@ class HRED():
         #model.summary()
         return model
 
-    def train_final_model(self, model, encoder_input_data, decoder_input_data, decoder_target_data):
+    def train_final_model(self, model, encoder_input_data, decoder_input_data, decoder_target_data,meta_hh,meta_hc):
         ver= False
         if(con.print1):#(datetime.datetime.now() < datetime.datetime(2018,5,31,10,23)) or(datetime.datetime.now() > datetime.datetime(2018,6,30,8)) ):
             ver=True
         if(ver):
             print("Q: %s A: %s W: %s"%(self.w2v.vec_to_sentence(encoder_input_data[0]), self.w2v.vec_to_sentence(decoder_input_data[0]),self.w2v.vec_to_sentence([i for i,x in enumerate(decoder_target_data[0]) if x == 1])))
         #print_weights = LambdaCallback(on_epoch_end=lambda batch, logs: print(model.layers[con.depth+3].get_weights()))
-        loss = model.fit([encoder_input_data, decoder_input_data], decoder_target_data, batch_size=len(encoder_input_data), epochs=con.epochs,verbose=ver)#,callbacks = [print_weights])#,validation_split=0.2)
+        if(len(encoder_input_data)>1 and con.validation>0):
+            loss = model.fit([encoder_input_data, decoder_input_data,meta_hh,meta_hc], decoder_target_data, batch_size=len(encoder_input_data), epochs=con.epochs,verbose=ver,validation_split=con.validation)#,callbacks = [print_weights])#,validation_split=0.2)
+        else:
+            loss = model.fit([encoder_input_data, decoder_input_data,meta_hh,meta_hc], decoder_target_data, batch_size=len(encoder_input_data), epochs=con.epochs,verbose=ver,validation_split=0)#,callbacks = [print_weights])#,validation_split=0.2)
+            loss.history['val_loss']=loss.history['loss']
         return loss
 
 
